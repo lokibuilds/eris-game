@@ -304,6 +304,18 @@ let score = 0;
 let bestScore = 0;
 let frameCount = 0;
 let ambientSound = null;
+let lastSurgeMilestone = 0;
+
+// ── Artemis Eye ───────────────────────────────────────────────
+const eye = {
+  x: W + 60,
+  y: H / 2,
+  vy: 0,
+  active: false,
+  warningTimer: 0,   // countdown before it enters
+  pulsePhase: 0,
+  speed: 1.2
+};
 
 const bird = {
   x: 110,
@@ -431,6 +443,112 @@ function drawPipe(pipe) {
   drawMoonSigil(x + PIPE_W/2, botY + botH/2);
 
   ctx.restore();
+}
+
+function drawArtemisEye() {
+  if (!eye.active && eye.warningTimer <= 0) return;
+
+  eye.pulsePhase += 0.08;
+  const pulse = 0.7 + 0.3 * Math.sin(eye.pulsePhase);
+  const radius = 22;
+
+  if (eye.warningTimer > 0) {
+    // Warning flash on the right edge before it enters
+    eye.warningTimer--;
+    const wAlpha = (Math.sin(frameCount * 0.3) + 1) / 2 * 0.8;
+    ctx.save();
+    ctx.globalAlpha = wAlpha;
+    ctx.strokeStyle = '#ff4488';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(W - 10, bird.y, radius * 0.6, 0, Math.PI * 2);
+    ctx.stroke();
+    // warning text
+    ctx.font = '8px Share Tech Mono';
+    ctx.fillStyle = '#ff4488';
+    ctx.fillText('ARTEMIS', W - 46, bird.y - 30);
+    ctx.restore();
+    if (eye.warningTimer <= 0) {
+      eye.active = true;
+      eye.x = W + radius;
+      eye.y = bird.y;
+    }
+    return;
+  }
+
+  // Track bird vertically — smooth chase
+  const targetY = bird.y;
+  const dy = targetY - eye.y;
+  eye.vy += dy * 0.04;
+  eye.vy *= 0.88;
+  eye.y += eye.vy;
+  eye.y = Math.max(radius, Math.min(H - radius, eye.y));
+
+  // Move leftward across screen
+  eye.x -= eye.speed;
+
+  // Draw eye body — glowing orb
+  ctx.save();
+  ctx.translate(eye.x, eye.y);
+
+  // Outer glow ring
+  const outerGlow = ctx.createRadialGradient(0, 0, radius * 0.5, 0, 0, radius * 1.6);
+  outerGlow.addColorStop(0, `rgba(255, 40, 120, ${0.15 * pulse})`);
+  outerGlow.addColorStop(1, 'rgba(255, 40, 120, 0)');
+  ctx.fillStyle = outerGlow;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eye white
+  ctx.fillStyle = `rgba(255, 220, 235, ${0.9 * pulse})`;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, radius, radius * 0.65, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Iris — tracks bird direction
+  const irisX = Math.max(-6, Math.min(6, (bird.x - eye.x) * 0.05));
+  const irisY = Math.max(-4, Math.min(4, (bird.y - eye.y) * 0.05));
+  const iris = ctx.createRadialGradient(irisX, irisY, 0, irisX, irisY, 10);
+  iris.addColorStop(0, '#ff1166');
+  iris.addColorStop(0.6, '#aa0044');
+  iris.addColorStop(1, '#330011');
+  ctx.fillStyle = iris;
+  ctx.beginPath();
+  ctx.arc(irisX, irisY, 10, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Pupil
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.arc(irisX, irisY, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Crescent moon detail on iris
+  ctx.strokeStyle = `rgba(255, 180, 210, 0.4)`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(irisX - 2, irisY - 2, 6, Math.PI * 0.3, Math.PI * 1.2);
+  ctx.stroke();
+
+  ctx.restore();
+
+  // Collision check with eye
+  const ex = eye.x - bird.x;
+  const ey = eye.y - bird.y;
+  const dist = Math.sqrt(ex * ex + ey * ey);
+  if (dist < radius * 0.8 + 10) {
+    state = 'dead';
+    playDeathSound();
+    bird.glitchTimer = 30;
+    setTimeout(showGameOver, 700);
+  }
+
+  // Eye passed off screen left — deactivate
+  if (eye.x < -radius * 2) {
+    eye.active = false;
+    eye.warningTimer = 0;
+  }
 }
 
 function drawMoonSigil(cx, cy) {
@@ -616,8 +734,27 @@ function gameLoop() {
     // Pipes
     if (frameCount % PIPE_INTERVAL === 0) spawnPipe();
 
+    // Speed surge every 20 points
+    const surgeMilestone = Math.floor(score / 20);
+    if (surgeMilestone > lastSurgeMilestone) {
+      lastSurgeMilestone = surgeMilestone;
+      bird.gravity = Math.min(0.65, bird.gravity + 0.04);
+      bird.flapForce = Math.max(-9.5, bird.flapForce - 0.4);
+      scoreDisplay.style.color = '#ff88bb';
+      setTimeout(() => scoreDisplay.style.color = 'rgba(200, 160, 255, 0.9)', 600);
+    }
+
+    // Artemis Eye — first spawn at score 10, then every 25 pts
+    if (!eye.active && eye.warningTimer <= 0) {
+      const shouldSpawn = (score >= 10 && score > 0 && score % 25 === 0) || score === 10;
+      if (shouldSpawn && frameCount % 60 < 2) {
+        eye.warningTimer = 90;
+        eye.speed = 1.2 + lastSurgeMilestone * 0.15;
+      }
+    }
+
     pipes.forEach(p => {
-      p.x -= PIPE_SPEED + score * 0.015;
+      p.x -= PIPE_SPEED + score * 0.012;
       drawPipe(p);
 
       // Score
@@ -642,6 +779,7 @@ function gameLoop() {
   }
 
   drawAngel();
+  if (state === 'playing') drawArtemisEye();
   drawParticles();
   drawHUD();
 
@@ -658,12 +796,13 @@ function showGameOver() {
   ];
   const msg = msgs[Math.floor(Math.random() * msgs.length)];
 
+  const finalMsg = msg.replace('\n','<br>');
   overlay.innerHTML = `
     <div class="title-eris">E R I S</div>
     <div id="gameOverTitle">SIGNAL LOST</div>
     <div class="divider"></div>
     <div id="finalScore">SCORE: ${score} &nbsp;|&nbsp; BEST: ${bestScore}</div>
-    <div class="lore-text" style="margin-top:12px">${msg.replace('\n','<br>')}</div>
+    <div class="lore-text" style="margin-top:12px">${finalMsg}</div>
     <button id="startBtn" onclick="startGame()">FLY AGAIN</button>
   `;
   overlay.classList.remove('hidden');
@@ -678,13 +817,24 @@ function startGame() {
   state = 'playing';
   score = 0;
   frameCount = 0;
+  lastSurgeMilestone = 0;
   scoreDisplay.textContent = '0';
+  scoreDisplay.style.color = 'rgba(200, 160, 255, 0.9)';
 
   bird.y = H / 2;
   bird.vy = 0;
+  bird.gravity = 0.38;
+  bird.flapForce = -7.5;
   bird.trail = [];
   bird.glitchTimer = 0;
   bird.haloGlitch = 0;
+
+  eye.active = false;
+  eye.warningTimer = 0;
+  eye.x = W + 60;
+  eye.y = H / 2;
+  eye.vy = 0;
+  eye.speed = 1.2;
 
   pipes = [];
   particles = [];
