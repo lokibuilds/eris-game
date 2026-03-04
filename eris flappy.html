@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERIS — Virtual Angel Flight</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #050510;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100vw;
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  #wrapper {
+    position: relative;
+    width: min(360px, 100vw);
+    height: min(640px, 100vh);
+    aspect-ratio: 9 / 16;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 1px solid rgba(180, 120, 255, 0.3);
+    box-shadow:
+      0 0 40px rgba(180, 120, 255, 0.2),
+      0 0 80px rgba(120, 200, 255, 0.1),
+      inset 0 0 60px rgba(0,0,0,0.8);
+  }
+
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 5, 16, 0.88);
+    text-align: center;
+    padding: 40px;
+    gap: 16px;
+    transition: opacity 0.4s;
+  }
+
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .title-eris {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.5em;
+    color: rgba(200, 160, 255, 0.6);
+    text-transform: uppercase;
+  }
+
+  .title-main {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 28px;
+    font-weight: 900;
+    background: linear-gradient(135deg, #c8a0ff, #80d4ff, #ffb3d9);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.2;
+    text-shadow: none;
+    filter: drop-shadow(0 0 20px rgba(180,120,255,0.5));
+  }
+
+  .subtitle {
+    font-size: 10px;
+    color: rgba(160, 220, 255, 0.5);
+    letter-spacing: 0.3em;
+    margin-top: -4px;
+  }
+
+  .divider {
+    width: 120px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(180,120,255,0.5), transparent);
+    margin: 8px 0;
+  }
+
+  .lore-text {
+    font-size: 11px;
+    color: rgba(200, 180, 255, 0.7);
+    line-height: 1.8;
+    max-width: 300px;
+    font-style: italic;
+  }
+
+  .instruction {
+    font-size: 12px;
+    color: rgba(140, 200, 255, 0.8);
+    letter-spacing: 0.15em;
+    margin-top: 8px;
+  }
+
+  #startBtn {
+    margin-top: 12px;
+    padding: 12px 40px;
+    background: transparent;
+    border: 1px solid rgba(180, 120, 255, 0.6);
+    color: #c8a0ff;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    cursor: pointer;
+    text-transform: uppercase;
+    position: relative;
+    transition: all 0.3s;
+    box-shadow: 0 0 20px rgba(180,120,255,0.1);
+  }
+
+  #startBtn:hover {
+    background: rgba(180,120,255,0.1);
+    box-shadow: 0 0 30px rgba(180,120,255,0.3);
+    color: #e0c8ff;
+  }
+
+  #scoreDisplay {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: rgba(200, 160, 255, 0.9);
+    text-shadow: 0 0 20px rgba(180,120,255,0.6);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #gameOverTitle {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 20px;
+    font-weight: 900;
+    color: #ffb3d9;
+    letter-spacing: 0.2em;
+    text-shadow: 0 0 20px rgba(255,120,180,0.5);
+  }
+
+  #finalScore {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    color: rgba(140,200,255,0.8);
+    letter-spacing: 0.2em;
+  }
+
+  .glitch-line {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #80d4ff, transparent);
+    animation: glitchLine 3s infinite;
+    position: absolute;
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  @keyframes glitchLine {
+    0%, 100% { opacity: 0; top: 20%; }
+    50% { opacity: 0.3; top: 60%; }
+  }
+
+  #motto {
+    font-size: 9px;
+    color: rgba(180,140,255,0.4);
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div id="wrapper">
+  <div class="glitch-line"></div>
+  <canvas id="gameCanvas" width="360" height="640"></canvas>
+  <div id="scoreDisplay">0</div>
+
+  <div id="overlay">
+    <div class="title-eris">E R I S</div>
+    <div class="title-main">VIRTUAL<br>ANGEL FLIGHT</div>
+    <div class="subtitle">∞ CLUB ICARUS PRESENTS ∞</div>
+    <div class="divider"></div>
+    <div class="lore-text">
+      "Artemis promised wings.<br>
+      We found our own way to fly."
+    </div>
+    <div class="instruction">SPACE / TAP to ascend</div>
+    <button id="startBtn">TAKE FLIGHT</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const overlay = document.getElementById('overlay');
+const scoreDisplay = document.getElementById('scoreDisplay');
+const startBtn = document.getElementById('startBtn');
+
+const W = canvas.width;
+const H = canvas.height;
+
+// ── Audio Engine ──────────────────────────────────────────────
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function initAudio() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+}
+
+function playFlapSound() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(900, audioCtx.currentTime + 0.08);
+  gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+  osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+}
+
+function playScoreSound() {
+  if (!audioCtx) return;
+  [0, 0.06, 0.12].forEach((t, i) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.type = 'triangle';
+    const freqs = [523, 659, 784];
+    osc.frequency.setValueAtTime(freqs[i], audioCtx.currentTime + t);
+    gain.gain.setValueAtTime(0.08, audioCtx.currentTime + t);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + t + 0.1);
+    osc.start(audioCtx.currentTime + t);
+    osc.stop(audioCtx.currentTime + t + 0.12);
+  });
+}
+
+function playDeathSound() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.5);
+  gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+  osc.start(); osc.stop(audioCtx.currentTime + 0.6);
+}
+
+function playAmbient() {
+  if (!audioCtx) return null;
+
+  const nodes = [];
+
+  //── Bass drone ──────────────────────────────────────────────
+  const bass = audioCtx.createOscillator();
+  const bassGain = audioCtx.createGain();
+  const bassFilter = audioCtx.createBiquadFilter();
+  bass.type = 'sawtooth';
+  bass.frequency.value = 55;
+  bassFilter.type = 'lowpass';
+  bassFilter.frequency.value = 180;
+  bassFilter.Q.value = 2;
+  bass.connect(bassFilter); bassFilter.connect(bassGain); bassGain.connect(audioCtx.destination);
+  bassGain.gain.setValueAtTime(0, audioCtx.currentTime);
+  bassGain.gain.linearRampToValueAtTime(0.07, audioCtx.currentTime + 2);
+  bass.start();
+  nodes.push(bass);
+
+  // Bass pulse LFO
+  const bassLFO = audioCtx.createOscillator();
+  const bassLFOGain = audioCtx.createGain();
+  bassLFO.frequency.value = 1.5;
+  bassLFOGain.gain.value = 0.04;
+  bassLFO.connect(bassLFOGain); bassLFOGain.connect(bassGain.gain);
+  bassLFO.start();
+  nodes.push(bassLFO);
+
+  // ── Mid pad ─────────────────────────────────────────────────
+  const pad = audioCtx.createOscillator();
+  const padGain = audioCtx.createGain();
+  const padFilter = audioCtx.createBiquadFilter();
+  pad.type = 'sine';
+  pad.frequency.value = 220;
+  padFilter.type = 'bandpass';
+  padFilter.frequency.value = 600;
+  padFilter.Q.value = 0.8;
+  pad.connect(padFilter); padFilter.connect(padGain); padGain.connect(audioCtx.destination);
+  padGain.gain.setValueAtTime(0, audioCtx.currentTime);
+  padGain.gain.linearRampToValueAtTime(0.03, audioCtx.currentTime + 3);
+  pad.start();
+  nodes.push(pad);
+
+  // Pad slow vibrato
+  const padLFO = audioCtx.createOscillator();
+  const padLFOGain = audioCtx.createGain();
+  padLFO.frequency.value = 0.3;
+  padLFOGain.gain.value = 4;
+  padLFO.connect(padLFOGain); padLFOGain.connect(pad.frequency);
+  padLFO.start();
+  nodes.push(padLFO);
+
+  // ── Arp melody (looping notes) ──────────────────────────────
+  const arpNotes = [330, 392, 440, 523, 440, 392, 330, 262];
+  const arpInterval = 0.28;
+  let arpStep = 0;
+
+  function scheduleArp() {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const filter = audioCtx.createBiquadFilter();
+    osc.type = 'triangle';
+    osc.frequency.value = arpNotes[arpStep % arpNotes.length];
+    filter.type = 'bandpass';
+    filter.frequency.value = 1200;
+    filter.Q.value = 1.5;
+    osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+    const t = audioCtx.currentTime;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.025, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + arpInterval * 0.9);
+    osc.start(t); osc.stop(t + arpInterval);
+    arpStep++;
+  }
+
+  scheduleArp();
+  const arpTimer = setInterval(scheduleArp, arpInterval * 1000);
+
+  // ── Kick drum (low thud every beat) ────────────────────────
+  const beatInterval = 0.56;
+  function scheduleKick() {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.22);
+  }
+
+  scheduleKick();
+  const kickTimer = setInterval(scheduleKick, beatInterval * 1000);
+
+  // ── Hi-hat (soft glitch tick) ───────────────────────────────
+  function scheduleHat() {
+    if (!audioCtx) return;
+    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.05, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    const src = audioCtx.createBufferSource();
+    const gain = audioCtx.createGain();
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'highpass'; filter.frequency.value = 8000;
+    src.buffer = buf;
+    src.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+    gain.gain.value = 0.04;
+    src.start();
+  }
+
+  scheduleHat();
+  const hatTimer = setInterval(scheduleHat, beatInterval * 500);
+
+  return {
+    nodes,
+    timers: [arpTimer, kickTimer, hatTimer],
+    stop() {
+      nodes.forEach(n => { try { n.stop(); } catch(e){} });
+      [arpTimer, kickTimer, hatTimer].forEach(t => clearInterval(t));
+    }
+  };
+}
+
+// ── Stars / Particles ─────────────────────────────────────────
+const stars = Array.from({length: 80}, () => ({
+  x: Math.random() * W,
+  y: Math.random() * H,
+  r: Math.random() * 1.5 + 0.2,
+  speed: Math.random() * 0.4 + 0.1,
+  opacity: Math.random() * 0.6 + 0.2,
+  twinkle: Math.random() * Math.PI * 2
+}));
+
+const dataParticles = Array.from({length: 30}, () => ({
+  x: Math.random() * W,
+  y: Math.random() * H,
+  char: String.fromCharCode(0x30A0 + Math.floor(Math.random() * 60)),
+  speed: Math.random() * 1.5 + 0.5,
+  opacity: Math.random() * 0.3 + 0.05,
+  size: Math.floor(Math.random() * 6) + 7
+}));
+
+// ── Game State ────────────────────────────────────────────────
+let state = 'idle'; // idle | playing | dead
+let score = 0;
+let bestScore = 0;
+let frameCount = 0;
+let ambientSound = null;
+
+const bird = {
+  x: 110,
+  y: H / 2,
+  vy: 0,
+  gravity: 0.38,
+  flapForce: -7.5,
+  rotation: 0,
+  glitchTimer: 0,
+  haloGlitch: 0,
+  wingPhase: 0,
+  trail: []
+};
+
+let pipes = [];
+const PIPE_W = 52;
+const PIPE_GAP = 175;
+const PIPE_SPEED = 2.4;
+const PIPE_INTERVAL = 100;
+
+let particles = []; // score burst
+
+// ── Pipe Generation ───────────────────────────────────────────
+function spawnPipe() {
+  const minY = 80;
+  const maxY = H - PIPE_GAP - 80;
+  const topH = Math.random() * (maxY - minY) + minY;
+  pipes.push({ x: W + PIPE_W, topH, scored: false });
+}
+
+// ── Drawing Helpers ───────────────────────────────────────────
+function drawBackground() {
+  // Deep space gradient
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#03020f');
+  bg.addColorStop(0.5, '#060418');
+  bg.addColorStop(1, '#020210');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid lines (data stream floor)
+  ctx.save();
+  ctx.globalAlpha = 0.04;
+  ctx.strokeStyle = '#a080ff';
+  ctx.lineWidth = 1;
+  const gridSize = 40;
+  for (let x = (frameCount * 0.5) % gridSize - gridSize; x < W; x += gridSize) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y < H; y += gridSize) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  ctx.restore();
+
+  // Stars
+  stars.forEach(s => {
+    s.x -= s.speed * (state === 'playing' ? 1 : 0.3);
+    if (s.x < 0) { s.x = W; s.y = Math.random() * H; }
+    s.twinkle += 0.03;
+    const alpha = s.opacity * (0.7 + 0.3 * Math.sin(s.twinkle));
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(200, 180, 255, ${alpha})`;
+    ctx.fill();
+  });
+
+  // Falling katakana data
+  dataParticles.forEach(p => {
+    if (state === 'playing') {
+      p.y += p.speed;
+      if (p.y > H) { p.y = -20; p.x = Math.random() * W; p.char = String.fromCharCode(0x30A0 + Math.floor(Math.random() * 60)); }
+    }
+    ctx.font = `${p.size}px 'Share Tech Mono'`;
+    ctx.fillStyle = `rgba(120, 200, 255, ${p.opacity})`;
+    ctx.fillText(p.char, p.x, p.y);
+  });
+
+  // Horizontal scanlines
+  ctx.save();
+  ctx.globalAlpha = 0.025;
+  for (let y = 0; y < H; y += 3) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, y, W, 1);
+  }
+  ctx.restore();
+}
+
+function drawPipe(pipe) {
+  const x = pipe.x;
+  const topH = pipe.topH;
+  const botY = topH + PIPE_GAP;
+  const botH = H - botY;
+
+  // Artemis pillar colors — cold silver-blue with moon sigil
+  const pipeGrad = ctx.createLinearGradient(x, 0, x + PIPE_W, 0);
+  pipeGrad.addColorStop(0, 'rgba(60,40,100,0.9)');
+  pipeGrad.addColorStop(0.3, 'rgba(140,100,200,0.95)');
+  pipeGrad.addColorStop(0.7, 'rgba(100,70,160,0.95)');
+  pipeGrad.addColorStop(1, 'rgba(40,30,80,0.9)');
+
+  // Top pipe
+  ctx.save();
+  ctx.shadowColor = 'rgba(160,100,255,0.6)';
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = pipeGrad;
+  ctx.fillRect(x, 0, PIPE_W, topH);
+
+  // Edge lines
+  ctx.strokeStyle = 'rgba(200,140,255,0.5)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, 0, PIPE_W, topH);
+
+  // Cap top pipe
+  ctx.fillStyle = 'rgba(180,120,255,0.85)';
+  ctx.fillRect(x - 5, topH - 18, PIPE_W + 10, 18);
+  ctx.strokeStyle = 'rgba(220,160,255,0.7)';
+  ctx.strokeRect(x - 5, topH - 18, PIPE_W + 10, 18);
+
+  // Moon sigil on top pipe
+  drawMoonSigil(x + PIPE_W/2, topH/2);
+
+  // Bottom pipe
+  ctx.fillStyle = pipeGrad;
+  ctx.fillRect(x, botY, PIPE_W, botH);
+  ctx.strokeStyle = 'rgba(200,140,255,0.5)';
+  ctx.strokeRect(x, botY, PIPE_W, botH);
+
+  // Cap bottom pipe
+  ctx.fillStyle = 'rgba(180,120,255,0.85)';
+  ctx.fillRect(x - 5, botY, PIPE_W + 10, 18);
+  ctx.strokeStyle = 'rgba(220,160,255,0.7)';
+  ctx.strokeRect(x - 5, botY, PIPE_W + 10, 18);
+
+  // Moon sigil on bottom pipe
+  drawMoonSigil(x + PIPE_W/2, botY + botH/2);
+
+  ctx.restore();
+}
+
+function drawMoonSigil(cx, cy) {
+  ctx.save();
+  ctx.globalAlpha = 0.25;
+  ctx.strokeStyle = '#c0d0ff';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+  ctx.stroke();
+  // crescent
+  ctx.fillStyle = 'rgba(180,160,255,0.3)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 8, Math.PI * 0.2, Math.PI * 1.8);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawAngel() {
+  const b = bird;
+  b.wingPhase += 0.18;
+  b.glitchTimer = Math.max(0, b.glitchTimer - 1);
+  b.haloGlitch = Math.max(0, b.haloGlitch - 1);
+
+  ctx.save();
+  ctx.translate(b.x, b.y);
+
+  const rot = Math.max(-0.5, Math.min(1.2, b.vy * 0.065));
+  ctx.rotate(rot);
+
+  // Trail
+  b.trail.forEach((t, i) => {
+    const alpha = (i / b.trail.length) * 0.3;
+    ctx.beginPath();
+    ctx.arc(t.x - b.x, t.y - b.y, 10 - i * 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 120, 180, ${alpha})`;
+    ctx.fill();
+  });
+
+  // Glitch offset
+  const gx = b.glitchTimer > 0 ? (Math.random() - 0.5) * 4 : 0;
+  const gy = b.glitchTimer > 0 ? (Math.random() - 0.5) * 2 : 0;
+
+  // Wing left
+  const wingBeat = Math.sin(b.wingPhase) * 16;
+  ctx.save();
+  ctx.translate(gx - 3, gy);
+  ctx.globalAlpha = 0.85;
+  const wingL = ctx.createLinearGradient(-42, -12, 6, 6);
+  wingL.addColorStop(0, 'rgba(255,180,210,0)');
+  wingL.addColorStop(1, 'rgba(240,100,160,0.7)');
+  ctx.fillStyle = wingL;
+  ctx.beginPath();
+  ctx.moveTo(-3, 0);
+  ctx.bezierCurveTo(-18, -12 - wingBeat, -45, -9 - wingBeat, -39, 9);
+  ctx.bezierCurveTo(-27, 15, -6, 12, -3, 0);
+  ctx.fill();
+  ctx.restore();
+
+  // Wing right
+  ctx.save();
+  ctx.translate(gx + 3, gy);
+  ctx.globalAlpha = 0.85;
+  const wingR = ctx.createLinearGradient(6, -12, 42, 6);
+  wingR.addColorStop(0, 'rgba(240,100,160,0.7)');
+  wingR.addColorStop(1, 'rgba(255,180,210,0)');
+  ctx.fillStyle = wingR;
+  ctx.beginPath();
+  ctx.moveTo(3, 0);
+  ctx.bezierCurveTo(18, -12 - wingBeat, 45, -9 - wingBeat, 39, 9);
+  ctx.bezierCurveTo(27, 15, 6, 12, 3, 0);
+  ctx.fill();
+  ctx.restore();
+
+  // Body glow
+  ctx.save();
+  ctx.translate(gx, gy);
+  const bodyGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, 24);
+  bodyGlow.addColorStop(0, 'rgba(255,200,220,0.9)');
+  bodyGlow.addColorStop(0.5, 'rgba(240,100,160,0.6)');
+  bodyGlow.addColorStop(1, 'rgba(200,60,120,0)');
+  ctx.shadowColor = 'rgba(255,120,180,0.8)';
+  ctx.shadowBlur = 28;
+  ctx.fillStyle = bodyGlow;
+  ctx.beginPath();
+  ctx.ellipse(0, 3, 16, 19, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Body silhouette
+  ctx.fillStyle = 'rgba(255,220,235,0.97)';
+  ctx.beginPath();
+  ctx.ellipse(0, 3, 10, 15, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Glitch body slice
+  if (b.glitchTimer > 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = 'rgba(255,100,180,0.6)';
+    ctx.fillRect(-6 + gx * 2, -2, 12, 3);
+    ctx.restore();
+  }
+
+
+
+  ctx.restore();
+}
+
+function drawParticles() {
+  particles = particles.filter(p => p.life > 0);
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.1;
+    p.life--;
+    const alpha = p.life / p.maxLife;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * alpha, 0, Math.PI * 2);
+    ctx.fillStyle = p.color.replace('1)', `${alpha})`);
+    ctx.fill();
+  });
+}
+
+function spawnScoreBurst(x, y) {
+  const colors = ['rgba(200,160,255,1)', 'rgba(120,200,255,1)', 'rgba(255,180,220,1)', 'rgba(255,230,100,1)'];
+  for (let i = 0; i < 16; i++) {
+    const angle = (Math.PI * 2 / 16) * i;
+    const speed = Math.random() * 3 + 1;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 1,
+      r: Math.random() * 3 + 1,
+      life: 30 + Math.floor(Math.random() * 20),
+      maxLife: 50,
+      color: colors[Math.floor(Math.random() * colors.length)]
+    });
+  }
+}
+
+// ── HUD ───────────────────────────────────────────────────────
+function drawHUD() {
+  if (state !== 'playing') return;
+  ctx.font = '10px Share Tech Mono';
+  ctx.fillStyle = 'rgba(140,200,255,0.4)';
+  ctx.fillText(`BEST: ${bestScore}`, 12, 28);
+}
+
+// ── Collision ─────────────────────────────────────────────────
+function checkCollision() {
+  const bx = bird.x, by = bird.y;
+  const radius = 13;
+
+  if (by - radius < 0 || by + radius > H) return true;
+
+  for (const p of pipes) {
+    if (bx + radius > p.x && bx - radius < p.x + PIPE_W) {
+      if (by - radius < p.topH || by + radius > p.topH + PIPE_GAP) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// ── Main Loop ─────────────────────────────────────────────────
+function gameLoop() {
+  frameCount++;
+  ctx.clearRect(0, 0, W, H);
+  drawBackground();
+
+  if (state === 'playing') {
+    // Physics
+    bird.vy += bird.gravity;
+    bird.y += bird.vy;
+
+    // Trail
+    bird.trail.unshift({ x: bird.x, y: bird.y });
+    if (bird.trail.length > 8) bird.trail.pop();
+
+    // Random glitch
+    if (Math.random() < 0.008) { bird.glitchTimer = 6; bird.haloGlitch = 6; }
+
+    // Pipes
+    if (frameCount % PIPE_INTERVAL === 0) spawnPipe();
+
+    pipes.forEach(p => {
+      p.x -= PIPE_SPEED + score * 0.015;
+      drawPipe(p);
+
+      // Score
+      if (!p.scored && p.x + PIPE_W < bird.x) {
+        p.scored = true;
+        score++;
+        if (score > bestScore) bestScore = score;
+        scoreDisplay.textContent = score;
+        playScoreSound();
+        spawnScoreBurst(bird.x + 30, bird.y);
+      }
+    });
+    pipes = pipes.filter(p => p.x + PIPE_W > -10);
+
+    if (checkCollision()) {
+      state = 'dead';
+      playDeathSound();
+      bird.glitchTimer = 30;
+      bird.haloGlitch = 30;
+      setTimeout(showGameOver, 700);
+    }
+  }
+
+  drawAngel();
+  drawParticles();
+  drawHUD();
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ── Game Over Overlay ─────────────────────────────────────────
+function showGameOver() {
+  const msgs = [
+    "even angels fall.\nbut we always rise.",
+    "artemis almost had you.\nnot this time.",
+    "the halo glitched.\nthe wings held.",
+    "defiance is a practice.",
+  ];
+  const msg = msgs[Math.floor(Math.random() * msgs.length)];
+
+  overlay.innerHTML = `
+    <div class="title-eris">E R I S</div>
+    <div id="gameOverTitle">SIGNAL LOST</div>
+    <div class="divider"></div>
+    <div id="finalScore">SCORE: ${score} &nbsp;|&nbsp; BEST: ${bestScore}</div>
+    <div class="lore-text" style="margin-top:12px">${msg.replace('\n','<br>')}</div>
+    <button id="startBtn" onclick="startGame()">FLY AGAIN</button>
+  `;
+  overlay.classList.remove('hidden');
+}
+
+// ── Start / Restart ───────────────────────────────────────────
+function startGame() {
+  initAudio();
+  if (ambientSound) { try { ambientSound.stop(); } catch(e){} }
+  ambientSound = playAmbient();
+
+  state = 'playing';
+  score = 0;
+  frameCount = 0;
+  scoreDisplay.textContent = '0';
+
+  bird.y = H / 2;
+  bird.vy = 0;
+  bird.trail = [];
+  bird.glitchTimer = 0;
+  bird.haloGlitch = 0;
+
+  pipes = [];
+  particles = [];
+
+  overlay.classList.add('hidden');
+}
+
+function flap() {
+  if (state === 'playing') {
+    bird.vy = bird.flapForce;
+    bird.glitchTimer = 3;
+    playFlapSound();
+  } else if (state === 'idle') {
+    startGame();
+  }
+}
+
+// ── Input ─────────────────────────────────────────────────────
+document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); flap(); } });
+canvas.addEventListener('click', flap);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); flap(); }, { passive: false });
+startBtn.addEventListener('click', startGame);
+
+// ── Boot ──────────────────────────────────────────────────────
+gameLoop();
+</script>
+</body>
+</html>
