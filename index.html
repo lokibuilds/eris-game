@@ -476,15 +476,15 @@ function drawArtemisEye() {
     return;
   }
 
-  // Track bird vertically — smooth chase
+  // Track bird vertically — loose chase, player can dodge by moving fast
   const targetY = bird.y;
   const dy = targetY - eye.y;
-  eye.vy += dy * 0.04;
-  eye.vy *= 0.88;
+  eye.vy += dy * 0.018;
+  eye.vy *= 0.92;
   eye.y += eye.vy;
   eye.y = Math.max(radius, Math.min(H - radius, eye.y));
 
-  // Move leftward across screen
+  // Move leftward across screen — fast enough to actually pass through
   eye.x -= eye.speed;
 
   // Draw eye body — glowing orb
@@ -749,7 +749,7 @@ function gameLoop() {
       const shouldSpawn = (score >= 10 && score > 0 && score % 25 === 0) || score === 10;
       if (shouldSpawn && frameCount % 60 < 2) {
         eye.warningTimer = 90;
-        eye.speed = 1.2 + lastSurgeMilestone * 0.15;
+  eye.speed = 3.5 + lastSurgeMilestone * 0.2;
       }
     }
 
@@ -834,7 +834,7 @@ function startGame() {
   eye.x = W + 60;
   eye.y = H / 2;
   eye.vy = 0;
-  eye.speed = 1.2;
+  eye.speed = 3.5;
 
   pipes = [];
   particles = [];
